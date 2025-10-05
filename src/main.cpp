@@ -41,6 +41,11 @@ void setup() {
 
 void loop() {
   
+  if(digitalRead(PIN_BUTTON) == LOW){
+    Serial.println("Przycisk przyciśnięty");
+    commandData.command = 1;
+    esp_err_t result = esp_now_send(brodcastAddress, (uint8_t*) &commandData, sizeof(commandData));
+  }
 }
 
 void setup_esp_now(){
@@ -56,19 +61,21 @@ void setup_esp_now(){
 
   esp_now_peer_info_t peerInfo;
 
+  memset(&peerInfo, 0, sizeof(peerInfo)); 
+
   // Register peer
   memcpy(peerInfo.peer_addr, brodcastAddress, 6);
   peerInfo.channel = 0; 
   peerInfo.encrypt = false;
     // Add peer       
   if (esp_now_add_peer(&peerInfo) != ESP_OK){
-    Serial.println("Failed to add peer");
+    Serial.println("Nie udało sie dodać peera");
     return;
   }
+  Serial.println("Peer powienien sie dodać kurde");
 }
 
 void setup_screen(){
-  screen.begin();
   if(!screen.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRES)){
     Serial.println(F("SSD1306 alokacja nieudana lub wyświetlacz nieznaleziony."));
     for(;;);
@@ -78,10 +85,17 @@ void setup_screen(){
   screen.setTextColor(SSD1306_WHITE);
   screen.clearDisplay();
   screen.setCursor(0,0);
+
+  screen.println("Chyba dziala");
+  screen.display(); // Wymagane, aby wyświetlić tekst!
+  delay(3000);
+  screen.clearDisplay();
+  screen.display(); // Wymagane, aby wyczyścić ekran!
 }
 
 
 void OnDataSend(const uint8_t *mac_addr, esp_now_send_status_t status){
+  Serial.println("wysyłanie danych");
   if(status != ESP_OK){
     Serial.println("problem z wysłaniem danych");
     return;
@@ -90,8 +104,12 @@ void OnDataSend(const uint8_t *mac_addr, esp_now_send_status_t status){
 
 void OnDataRecv(const uint8_t *mac_addr, const uint8_t *incoming_data,  int len){
   memcpy(&sensorData, incoming_data, sizeof(sensorData));
-  setup_screen();
+  Serial.println("Dane przyszły");
+  // Niezbędne kroki, aby dane były czytelne
+  screen.clearDisplay(); // Wyczyść bufor
+  screen.setCursor(0, 0); // Ustaw kursor na początek
+  
   screen.print("temperature: ");
   screen.println(sensorData.temperature);
-  screen.display();
+  screen.display(); // Wyślij bufor na ekran
 }
