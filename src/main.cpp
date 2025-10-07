@@ -3,6 +3,7 @@
 #include <Adafruit_SSD1306.h>
 #include <WiFi.h>
 #include <esp_now.h>
+#include <esp_wifi.h>
 
 const uint8_t SCREEN_WIDTH = 128;
 const uint8_t SCREEN_HEIGHT = 64;
@@ -25,7 +26,7 @@ typedef struct SensorData{
 CommandData commandData;
 SensorData sensorData;
 
-uint8_t brodcastAddress[] = {0xC0, 0x49, 0xEF, 0xCA, 0x70, 0x24}; // adres drugiego modułu
+uint8_t brodcastAddress[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00}; // adres drugiego modułu
 
 void setup_esp_now();
 void setup_screen();
@@ -40,16 +41,29 @@ void setup() {
 }
 
 void loop() {
-  
   if(digitalRead(PIN_BUTTON) == LOW){
-    Serial.println("Przycisk przyciśnięty");
+    Serial.println("Przycisk przyciśnięty - próba wysłania");
+    
     commandData.command = 1;
     esp_err_t result = esp_now_send(brodcastAddress, (uint8_t*) &commandData, sizeof(commandData));
+
+    if (result != ESP_OK) {
+      Serial.print("Błąd esp_now_send: ");
+      // Możesz dodać więcej szczegółów w zależności od zwracanego błędu (np. ESP_ERR_ESPNOW_IF).
+      // W tym prostym przypadku wystarczy to:
+      Serial.println(result); 
+    } else {
+       // Nie ma sensu wypisywać tego tutaj, bo OnDataSend załatwia sprawę
+    }
+    
+    delay(50); // Zabezpieczenie przed zalaniem
   }
 }
 
 void setup_esp_now(){
   WiFi.mode(WIFI_STA);
+
+  //esp_wifi_set_channel(6, WIFI_SECOND_CHAN_NONE);
 
   if (esp_now_init() != ESP_OK) {
     Serial.println("Error initializing ESP-NOW");
@@ -95,10 +109,18 @@ void setup_screen(){
 
 
 void OnDataSend(const uint8_t *mac_addr, esp_now_send_status_t status){
-  Serial.println("wysyłanie danych");
-  if(status != ESP_OK){
-    Serial.println("problem z wysłaniem danych");
-    return;
+  // Deklaracja MAC-a jako string do czytania
+  char macStr[18];
+  snprintf(macStr, sizeof(macStr), "%02x:%02x:%02x:%02x:%02x:%02x",
+           mac_addr[0], mac_addr[1], mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5]);
+
+  if(status == ESP_OK){
+    Serial.print("Pakiet do MAC: ");
+    Serial.print(macStr);
+    Serial.println(" wysłany pomyślnie.");
+  } else {
+    Serial.print("Błąd wysłania pakietu do MAC: ");
+    Serial.println(macStr);
   }
 }
 
